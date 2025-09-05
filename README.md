@@ -1,2 +1,3 @@
 new# 5430_project
-test change #오후
+test change #afternoon
+R & Python needed to be installed
