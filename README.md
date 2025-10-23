@@ -6,4 +6,4 @@ Goal: adjust HMC with regards to gradient vector
 
 HMC.R: HMC vs (RWM, Adaptive MH)
 
-Literature review: https://arxiv.org/pdf/1402.4102
+Literature review: https://arxiv.org/pdf/1402.4102, https://arxiv.org/pdf/1701.02434
