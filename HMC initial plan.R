@@ -1,13 +1,3 @@
-# ================================
-# HMC vs (RWM, Adaptive MH) 비교 예제
-# Target: 2D multivariate normal with rho = 0.9
-# 출력: runtime, ESS, ESS/sec, trace, ACF, scatter
-# ================================
-
-# --- 필요한 패키지 설치(처음 한 번만) ---
-# install.packages(c("mcmc", "adaptMCMC", "rstan", "coda", "ggplot2", "posterior", "gridExtra"))
-# rstan 설치/설정은 CRAN 문서 참조 (컴파일러 필요)
-
 library(mcmc)        # metrop (random-walk Metropolis)
 library(adaptMCMC)   # adaptive Metropolis
 library(rstan)       # HMC / NUTS
@@ -21,7 +11,7 @@ sgmcmc::sghmc
 ?set.seed(123)
 
 # ---------------------------
-# 1) 타겟 분포 정의 (2D correlated MVN)
+# 1) 2D correlated MVN
 # ---------------------------
 mu <- c(0,0)
 Sigma <- matrix(c(1, 0.9,
@@ -89,9 +79,9 @@ fit <- sampling(sm, data = list(mu = mu, Sigma = Sigma),
 t1 <- Sys.time()
 time_hmc <- as.numeric(difftime(t1, t0, units = "secs"))
 
-# 사후표본(post-warmup)을 행렬로 추출
-samps_hmc <- as.matrix(fit, pars = "x")   # 열 이름은 보통 "x[1]", "x[2]"
-colnames(samps_hmc) <- c("x1", "x2")      # 보기 좋게 바꿔주기
+# posterior
+samps_hmc <- as.matrix(fit, pars = "x")   
+colnames(samps_hmc) <- c("x1", "x2")     
 samples_hmc <- samps_hmc
 
 # ---------------------------
