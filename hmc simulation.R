@@ -1,5 +1,5 @@
 # ==============================================================================
-# [통합 실행 스크립트] HMC vs SGHMC (Pure R & Rcpp)
+# HMC vs SGHMC (Pure R & Rcpp)
 # ==============================================================================
 
 library(hmclearn)
@@ -8,7 +8,7 @@ library(ggplot2)
 library(gridExtra)
 
 # ------------------------------------------------------------------------------
-# 1. 함수 정의 (먼저 다 정의해둡니다)
+# 1. functions
 # ------------------------------------------------------------------------------
 
 # (1) Basic SGHMC (Rcpp Version)
@@ -179,9 +179,8 @@ sghmc_cyclical_r <- function(X, y, theta_init, n_iter, epsilon_max, cycle_length
 }
 
 # ------------------------------------------------------------------------------
-# 2. 데이터 준비 및 실행
+# 2. setting
 # ------------------------------------------------------------------------------
-cat(">>> 데이터 생성 중...\n")
 set.seed(42)
 N <- 2000; d <- 5
 true_theta <- c(2, -1, 0.5, -0.5, 1)
@@ -196,16 +195,13 @@ theta_init <- rep(0, d)
 # ------------------------------------------------------------------------------
 # 1. Baseline: HMC
 # ------------------------------------------------------------------------------
-cat(">>> 1. HMC (Base) 실행 중 (Using param list)...\n")
 t0 <- Sys.time()
 linear_posterior <- function(theta, ...) {
   dots <- list(...)
   if (!is.null(dots$param)) {
     y <- dots$param$y; X <- dots$param$X
-  } else if (!is.null(dots$y) && !is.null(dots$X)) {
+  } else (!is.null(dots$y) && !is.null(dots$X)) {
     y <- dots$y; X <- dots$X
-  } else {
-    stop("linear_posterior: 'param=list(y=..., X=...)' 또는 'y=..., X=...' 중 하나를 전달하세요.")
   }
   
   p <- length(theta) - 1
@@ -226,10 +222,8 @@ g_linear_posterior <- function(theta, ...) {
   dots <- list(...)
   if (!is.null(dots$param)) {
     y <- dots$param$y; X <- dots$param$X
-  } else if (!is.null(dots$y) && !is.null(dots$X)) {
+  } else (!is.null(dots$y) && !is.null(dots$X)) {
     y <- dots$y; X <- dots$X
-  } else {
-    stop("g_linear_posterior: 'param=list(y=..., X=...)' 또는 'y=..., X=...' 중 하나를 전달하세요.")
   }
   
   p <- length(theta) - 1
@@ -245,7 +239,7 @@ g_linear_posterior <- function(theta, ...) {
   
   return(c(g_beta, as.numeric(g_log_sigma_sq)))
 }
-# [핵심 수정 1] theta.init 길이를 d + 1로 설정 (마지막은 log_sigma_sq)
+
 theta_init_hmc <- c(theta_init, 0) 
 
 res_hmc <- hmclearn::hmc(
@@ -255,7 +249,6 @@ res_hmc <- hmclearn::hmc(
   L = 10,                  
   logPOSTERIOR = linear_posterior,    
   glogPOSTERIOR = g_linear_posterior, 
-  # [핵심 수정 2] 데이터를 param 리스트로 전달!
   param = list(y = y, X = X)
   , parallel=FALSE, chains=1
 )
@@ -265,23 +258,18 @@ time_hmc <- as.numeric(Sys.time() - t0)
 
 theta_mat <- do.call(rbind, res_hmc$thetaCombined)
 samples_hmc <- theta_mat[, 1:d, drop = FALSE]
-cat("HMC 완료. 샘플 수:", nrow(samples_hmc), "\n")
 
 
 # --- (2) Basic SGHMC (Rcpp) ---
-cat(">>> 2. Basic SGHMC (Rcpp) 실행...\n")
 res_basic <- sghmc_cpp_timed(X, y, theta_init, n_iter, epsilon=0.01, C=10.0, M=1.0, lambda=1.0, batch_size=batch_size)
 
 # --- (3) Splitting SGHMC (R) ---
-cat(">>> 3. Splitting SGHMC (Pure R) 실행...\n")
 res_split <- sghmc_splitting_r(X, y, theta_init, n_iter, epsilon=0.01, C=10.0, lambda=1.0, batch_size=batch_size)
 
 # --- (4) Adaptive SGHMC (R) ---
-cat(">>> 4. Adaptive SGHMC (Pure R) 실행...\n")
 res_adapt <- sghmc_adaptive_r(X, y, theta_init, n_iter, epsilon=0.005, C=5.0, lambda=1.0, batch_size=batch_size, mdecay=0.1)
 
 # --- (5) Cyclical SGHMC (R) ---
-cat(">>> 5. Cyclical SGHMC (Pure R) 실행...\n")
 res_cycle <- sghmc_cyclical_r(X, y, theta_init, n_iter, epsilon_max=0.001, cycle_length=600, batch_size=batch_size)
 
 # ------------------------------------------------------------------------------
