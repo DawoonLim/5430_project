@@ -388,7 +388,7 @@ extract_all_params <- function(algo_name, samples) {
 # 데이터 추출
 df_hmc_all   <- extract_all_params("HMC", samples_hmc)
 df_basic_all <- extract_all_params("SGHMC", res_basic$Theta)
-df_split_all <- extract_all_params("Splitting", res_split$Theta)
+df_split_all <- extract_all_params("Splitting SGHMC", res_split$Theta)
 df_adapt_all <- extract_all_params("BOHAMIANN", res_adapt$Theta)
 df_cycle_all <- extract_all_params("cSGHMC", res_cycle$Theta)
 
@@ -396,7 +396,7 @@ df_cycle_all <- extract_all_params("cSGHMC", res_cycle$Theta)
 df_all_params <- rbind(df_hmc_all, df_basic_all, df_split_all, df_adapt_all, df_cycle_all)
 
 # Factor 순서 지정
-algo_levels <- c("HMC", "SGHMC", "Splitting", "BOHAMIANN", "cSGHMC")
+algo_levels <- c("HMC", "SGHMC", "Splitting SGHMC", "BOHAMIANN", "cSGHMC")
 df_all_params$Algorithm <- factor(df_all_params$Algorithm, levels = algo_levels)
 
 # ------------------------------------------------------------------------------
@@ -416,14 +416,16 @@ for (j in 1:5) {
   p_trace <- ggplot(df_sub %>% filter(Iteration > 100), 
                     aes(x=Iteration, y=Value, color=Algorithm)) +
     geom_line(alpha=0.8, linewidth=0.3) +
-    geom_hline(yintercept = t_val, linetype="dashed", color="black", linewidth=0.8) +
+    geom_hline(yintercept = t_val, linetype="dashed", color="red", linewidth=0.8) +
     facet_wrap(~Algorithm, ncol=1, scales="free_y") + 
     theme_bw() +
-    labs(title = paste0("Trace Plot: ", p_name),
-         subtitle = paste0("True Value = ", t_val),
+    labs(#title = paste0("Trace Plot: ", p_name),
+         #subtitle = paste0("True Value = ", t_val),
          y = "Parameter Value") +
     theme(legend.position="none", 
-          strip.text = element_text(face="bold"))
+          strip.text = element_text(face="bold"),
+          strip.background = element_blank(),
+          panel.grid = element_blank())
   
   # -------------------------
   # B. Density Plot (Burn-in 500 이후)
@@ -437,8 +439,8 @@ for (j in 1:5) {
     geom_vline(xintercept = t_val, linetype="dashed", color="black", linewidth=0.8) +
     scale_fill_brewer(palette = "Set1") + # 색상 팔레트
     theme_classic() +
-    labs(title = paste0("Posterior Density: ", p_name),
-         subtitle = "After Burn-in (500)",
+    labs(#title = paste0("Posterior Density: ", p_name),
+         #subtitle = "After Burn-in (500)",
          x = "Parameter Value") +
     coord_cartesian(xlim = x_lims) + # 튀는 값 제외하고 관심 영역 확대
     theme(legend.position="bottom")
@@ -446,6 +448,8 @@ for (j in 1:5) {
   print(p_trace)
   print(p_dens) 
 }
+
+
 
 
 # ------------------------------------------------------------------------------
