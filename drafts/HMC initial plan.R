@@ -172,7 +172,7 @@ sghmc_custom <- function(theta0, grad_fn, sample_minibatch_indices,
   r <- rep(0, D)                      # momentum
   chain <- matrix(NA, nrow = n_iters, ncol = D)
   
-  # 1) 초기 B_hat 추정 (대각)
+  # 1) B_hat
   grads <- matrix(0, nrow = K_est, ncol = D)
   for (k in 1:K_est) {
     idx <- sample_minibatch_indices()
@@ -181,7 +181,7 @@ sghmc_custom <- function(theta0, grad_fn, sample_minibatch_indices,
   Bhat_diag <- apply(grads, 2, var)  # per-dim variance of minibatch gradients
   
   # 2) set friction C (diagonal) conservatively
-  C_diag <- pmax(alpha_C * Bhat_diag, 1e-10)  # alpha>1 권장
+  C_diag <- pmax(alpha_C * Bhat_diag, 1e-10)  # alpha>1 
   
   for (t in 1:n_iters) {
     # optional: re-estimate B_hat periodically
