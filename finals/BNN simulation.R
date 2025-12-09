@@ -1,10 +1,3 @@
-#순위	알고리즘	특징 및 장점	단점	BNN 추천도
-# 1	Cyclical SGHMC	여러 Local Minima를 탐색하여 최고의 예측 성능 달성	튜닝이 매우 민감함 (발산 위험)	⭐⭐⭐⭐⭐ (Best Performance)
-# 2	Adaptive SGHMC	파라미터별 스케일 조정으로 가장 빠른 수렴	하나의 Mode(골짜기)에 갇힐 수 있음	⭐⭐⭐⭐ (Best Speed)
-# 3	Split SGHMC	Basic보다 안정적이고 HMC와 유사한 결과	고차원의 복잡한 지형에서는 느림	⭐⭐⭐ (Baseline)
-# 4	Standard HMC	이론적으로 가장 완벽한 샘플링	계산 비용이 너무 비쌈 (Full Batch)	⭐⭐ (Too Slow)
-# 5	Basic SGHMC	구현이 쉬움	노이즈 제어가 안 되어 정확도가 낮음	⭐ (Not Recommended)
-
 # p= (50×10)+10+(10×1)+1=521
 # n = 400
 library(hmclearn)
@@ -13,7 +6,7 @@ library(ggplot2)
 library(RcppArmadillo)
 library(Rcpp)
 
-# Rcpp 코드 컴파일
+# Rcpp 
 sourceCpp(code = '
 #include <RcppArmadillo.h>
 
@@ -225,7 +218,7 @@ mat sghmc_cyclical_cpp(mat X, vec y, vec theta_init, int n_iter,
 ')
 
 # ==============================================================================
-# 3. 데이터 생성 (기존과 동일)
+# 3. Generating the data
 # ==============================================================================
 d_in <- 50; d_hidden <- 10; d_out <- 1
 total_params <- (d_in * d_hidden) + d_hidden + (d_hidden * d_out) + d_out
@@ -282,7 +275,7 @@ get_bnn_grad <- function(theta, X_batch, y_batch, lambda, N_total, batch_size) {
   c(as.vector(g_W1), as.vector(g_b1), as.vector(g_W2), as.vector(g_b2))
 }
 
-# (2) Potential Energy U(theta) 계산 (HMC의 Accept/Reject용)
+# (2) Potential Energy U(theta)
 get_potential_energy <- function(theta, X, y, lambda) {
   params <- unpack_theta(theta, d_in, d_hidden, d_out)
   Z1 <- tanh(sweep(X %*% params$W1, 2, params$b1, "+"))
@@ -298,18 +291,16 @@ get_potential_energy <- function(theta, X, y, lambda) {
 
 
 # ==============================================================================
-# 4. 고속 시뮬레이션 실행 (Rcpp 함수 호출)
+# 4. Simulation
 # ==============================================================================
-# --- 실행 ---
-cat(">>> [2/6] HMC ...\n")
-# logPOSTERIOR 함수 (hmclearn은 이 값이 높은 곳을 찾습니다)
-# 기존 get_potential_energy는 에너지를 계산하므로, 여기에 (-)를 붙입니다.
-# (1) logPOSTERIOR: X, y, lambda를 직접 인자로 받음
+# logPOSTERIOR 
+# get_potential_energy (-)
+# (1) logPOSTERIOR: 
 bnn_log_posterior <- function(theta, X, y, lambda, ...) {
   # param 리스트를 푸는 과정 삭제 -> 인자로 바로 들어옴
   
   # Forward Pass
-  # (이전 코드의 unpack_theta가 메모리에 있어야 합니다)
+  # 
   params <- unpack_theta(theta, d_in, d_hidden, d_out)
   Z1 <- tanh(sweep(X %*% params$W1, 2, params$b1, "+"))
   y_pred <- sweep(Z1 %*% params$W2, 2, params$b2, "+")
@@ -321,13 +312,13 @@ bnn_log_posterior <- function(theta, X, y, lambda, ...) {
   return(log_lik + log_prior)
 }
 
-# (2) glogPOSTERIOR: 역시 직접 받음
+# (2) glogPOSTERIOR: 
 bnn_g_log_posterior <- function(theta, X, y, lambda, ...) {
   # HMC는 Full Batch이므로 N_total과 batch_size는 전체 데이터 개수
   N_total <- nrow(X)
   
-  # 기존에 정의한 역전파 함수 사용 (부호는 반대)
-  # get_bnn_grad 함수가 메모리에 있어야 합니다.
+  
+
   grad_U <- get_bnn_grad(theta, X, y, lambda, N_total, batch_size=N_total)
   
   return(-grad_U) 
@@ -342,7 +333,7 @@ res_hmclearn <- hmclearn::hmc(
   logPOSTERIOR = bnn_log_posterior,
   glogPOSTERIOR = bnn_g_log_posterior,
   
-  # [수정됨] param = list(...) 대신 변수를 직접 전달합니다.
+  # 
   X = X, 
   y = y, 
   lambda = 1,
@@ -352,34 +343,30 @@ res_hmclearn <- hmclearn::hmc(
 )
 
 time_hmc <- Sys.time() - t0
-res_hmc <- do.call(rbind, res_hmclearn$thetaCombined) # 결과 저장
+res_hmc <- do.call(rbind, res_hmclearn$thetaCombined) 
 
-# 결과 추출 (hmclearn은 list로 반환하므로 행렬로 변환)
-# burn-in 제외하고 싶으면 여기서 처리하거나 나중에 처리
+
+# burn-in 
 res_hmc_samples <- do.call(rbind, res_hmclearn$thetaCombined)
 
-cat(">>> [1/4] Basic SGHMC (Rcpp)...\n")
 t1 <- Sys.time()
 res_basic <- sghmc_basic_cpp(X, y, theta_init, n_iter, epsilon=0.0005, C=50, lambda=1, batch_size=batch_size, d_in, d_hidden, d_out)
 time_basic <- Sys.time() - t1
 
-cat(">>> [2/4] Splitting SGHMC (Rcpp)...\n")
 t2 <- Sys.time()
 res_split <- sghmc_splitting_cpp(X, y, theta_init, n_iter, epsilon=0.0005, C=50, lambda=1, batch_size=batch_size, d_in, d_hidden, d_out)
 time_split <- Sys.time() - t2
 
-cat(">>> [3/4] Adaptive SGHMC (Rcpp)...\n")
 t3 <- Sys.time()
 res_adapt <- sghmc_adaptive_cpp(X, y, theta_init, n_iter, epsilon=0.005, C=5, lambda=1, batch_size=batch_size, mdecay=0.05, d_in, d_hidden, d_out)
 time_adapt <- Sys.time() - t3
 
-cat(">>> [4/4] Cyclical SGHMC (Rcpp)...\n")
 t4 <- Sys.time()
 res_cyc <- sghmc_cyclical_cpp(X, y, theta_init, n_iter, epsilon_max=0.0001, cycle_length=200, batch_size=batch_size, beta=0.9, lambda=1, d_in, d_hidden, d_out)
 time_cyc <- Sys.time() - t4
 
 # ==============================================================================
-# 5. 결과 비교 및 시각화
+# 5. Result
 # ==============================================================================
 predict_bnn <- function(samp, X_new, burn=2000) {
   preds <- matrix(0, nrow=nrow(samp)-burn, ncol=nrow(X_new))
@@ -392,7 +379,7 @@ predict_bnn <- function(samp, X_new, burn=2000) {
   colMeans(preds)
 }
 
-cat("\n============== 결과 요약 (MSE & Time) ==============\n")
+
 res_list <- list(HMC=res_hmc, sghmc=res_basic, Split=res_split, Adapt=res_adapt, Cycle=res_cyc)
 times <- c(time_hmc, time_basic, time_split, time_adapt, time_cyc)
 algo_names <- c("HMC", "SGHMC", "Splitting SGHMC", "BOHAMIANN", "cSGHMC")
@@ -436,8 +423,7 @@ for(i in 1:5) {
 
 
 
-# 1. 예측 분포 계산
-# (이미 있는 predict_bnn 로직을 활용해 모든 샘플의 예측값을 가져와야 함)
+# 1. prediction
 get_pred_interval <- function(samp, X_data, burn=2000) {
   # 메모리 절약을 위해 샘플링 (예: 200개만 사용)
   use_idx <- seq(burn+1, nrow(samp), length.out=200)
@@ -450,7 +436,6 @@ get_pred_interval <- function(samp, X_data, burn=2000) {
     cnt <- cnt + 1
   }
   
-  # 평균, 하위 2.5%, 상위 97.5% 계산
   pred_mean <- colMeans(preds)
   pred_lower <- apply(preds, 2, quantile, probs=0.025)
   pred_upper <- apply(preds, 2, quantile, probs=0.975)
@@ -458,14 +443,12 @@ get_pred_interval <- function(samp, X_data, burn=2000) {
   return(data.frame(Observed=y, Predicted=pred_mean, Lower=pred_lower, Upper=pred_upper))
 }
 
-# 데이터 생성
 df_pred_hmc <- get_pred_interval(res_hmc, X, burn=2000)
 df_pred_sghmc <- get_pred_interval(res_basic, X, burn=2000)
 df_pred_split <- get_pred_interval(res_split, X, burn=2000)
 df_pred_adaptive <- get_pred_interval(res_adapt, X, burn=2000)
 df_pred_csghmc <- get_pred_interval(res_cyc, X, burn=2000)
 
-# 시각화 (샘플 50개만 랜덤으로 뽑아서 그리기 - 너무 많으면 안 보임)
 set.seed(10)
 sample_idx <- sample(1:N, 50)
 df_subset_hmc <- df_pred_hmc[sample_idx, ]
