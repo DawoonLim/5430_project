@@ -1,10 +1,3 @@
-#순위	알고리즘	특징 및 장점	단점	BNN 추천도
-# 1	Cyclical SGHMC	여러 Local Minima를 탐색하여 최고의 예측 성능 달성	튜닝이 매우 민감함 (발산 위험)	⭐⭐⭐⭐⭐ (Best Performance)
-# 2	Adaptive SGHMC	파라미터별 스케일 조정으로 가장 빠른 수렴	하나의 Mode(골짜기)에 갇힐 수 있음	⭐⭐⭐⭐ (Best Speed)
-# 3	Split SGHMC	Basic보다 안정적이고 HMC와 유사한 결과	고차원의 복잡한 지형에서는 느림	⭐⭐⭐ (Baseline)
-# 4	Standard HMC	이론적으로 가장 완벽한 샘플링	계산 비용이 너무 비쌈 (Full Batch)	⭐⭐ (Too Slow)
-# 5	Basic SGHMC	구현이 쉬움	노이즈 제어가 안 되어 정확도가 낮음	⭐ (Not Recommended)
-
 # p= (50×10)+10+(10×1)+1=521
 # n = 400
 library(hmclearn)
@@ -14,9 +7,9 @@ library(RcppArmadillo)
 library(Rcpp)
 
 # ==============================================================================
-# 1. BNN 헬퍼 함수 (Gradient & Log-Posterior)
+# 1. BNN (Gradient & Log-Posterior)
 # ==============================================================================
-# 구조: 50(Input) -> 10(Hidden) -> 1(Output)
+# 50(Input) -> 10(Hidden) -> 1(Output)
 d_in <- 50; d_hidden <- 10; d_out <- 1
 total_params <- (d_in * d_hidden) + d_hidden + (d_hidden * d_out) + d_out
 
@@ -75,7 +68,7 @@ get_potential_energy <- function(theta, X, y, lambda) {
 }
 
 # ==============================================================================
-# 2. 알고리즘 구현
+# 2. Algorithms
 # ==============================================================================
 
 # [2] SGHMC (rcpp)
@@ -86,8 +79,8 @@ sourceCpp(code = '
 using namespace Rcpp;
 using namespace arma;
 
-// (1) 내부 헬퍼: 기울기 계산 (Backpropagation)
-// 이 함수는 C++ 내부에서만 호출되므로 R로 export할 필요 없음
+// Backpropagation
+// 
 vec get_bnn_grad_cpp(vec theta, mat X_batch, vec y_batch, double lambda, 
                      double scale, int d_in, int d_hidden, int d_out) {
     
@@ -262,10 +255,9 @@ sghmc_cyclical_bnn <- function(X, y, theta_init, n_iter, epsilon_max, cycle_leng
 }
 
 # ==============================================================================
-# 3. 데이터 생성 및 실행
+# 3. Simulation
 # ==============================================================================
-cat(">>> [1/6] 데이터 생성 중...\n")
-#set.seed(42)
+
 set.seed(10)
 N <- 400 
 X <- matrix(rnorm(N * d_in), nrow = N, ncol = d_in)
@@ -288,16 +280,14 @@ theta_init <- rnorm(total_params, 0, 0.1)
 n_iter <- 10000
 batch_size <- 40 
 
-# --- 실행 ---
-cat(">>> [2/6] Standard HMC (Full Batch) 실행 중 (가장 느림)...\n")
-# logPOSTERIOR 함수 (hmclearn은 이 값이 높은 곳을 찾습니다)
-# 기존 get_potential_energy는 에너지를 계산하므로, 여기에 (-)를 붙입니다.
-# (1) logPOSTERIOR: X, y, lambda를 직접 인자로 받음
+
+# logPOSTERIOR
+# get_potential_energy (-)
+# (1) logPOSTERIOR:
 bnn_log_posterior <- function(theta, X, y, lambda, ...) {
-  # param 리스트를 푸는 과정 삭제 -> 인자로 바로 들어옴
+ 
   
   # Forward Pass
-  # (이전 코드의 unpack_theta가 메모리에 있어야 합니다)
   params <- unpack_theta(theta, d_in, d_hidden, d_out)
   Z1 <- tanh(sweep(X %*% params$W1, 2, params$b1, "+"))
   y_pred <- sweep(Z1 %*% params$W2, 2, params$b2, "+")
@@ -309,13 +299,13 @@ bnn_log_posterior <- function(theta, X, y, lambda, ...) {
   return(log_lik + log_prior)
 }
 
-# (2) glogPOSTERIOR: 역시 직접 받음
+# glogPOSTERIOR
 bnn_g_log_posterior <- function(theta, X, y, lambda, ...) {
   # HMC는 Full Batch이므로 N_total과 batch_size는 전체 데이터 개수
   N_total <- nrow(X)
   
-  # 기존에 정의한 역전파 함수 사용 (부호는 반대)
-  # get_bnn_grad 함수가 메모리에 있어야 합니다.
+
+  # get_bnn_grad 
   grad_U <- get_bnn_grad(theta, X, y, lambda, N_total, batch_size=N_total)
   
   return(-grad_U) 
@@ -330,7 +320,7 @@ res_hmclearn <- hmclearn::hmc(
   logPOSTERIOR = bnn_log_posterior,
   glogPOSTERIOR = bnn_g_log_posterior,
   
-  # [수정됨] param = list(...) 대신 변수를 직접 전달합니다.
+  # 
   X = X, 
   y = y, 
   lambda = 1,
@@ -340,17 +330,14 @@ res_hmclearn <- hmclearn::hmc(
 )
 
 time_hmc <- Sys.time() - t0
-res_hmc <- do.call(rbind, res_hmclearn$thetaCombined) # 결과 저장
+res_hmc <- do.call(rbind, res_hmclearn$thetaCombined) 
 
-# 결과 추출 (hmclearn은 list로 반환하므로 행렬로 변환)
-# burn-in 제외하고 싶으면 여기서 처리하거나 나중에 처리
+
 res_hmc_samples <- do.call(rbind, res_hmclearn$thetaCombined)
 
 
-cat(">>> [3/6] SGHMC 실행 중...\n")
 
 t_start <- Sys.time()
-# C++ 함수 호출
 res_basic_cpp <- sghmc_basic_bnn_cpp(
   X, y, theta_init, 
   n_iter = n_iter, 
@@ -367,23 +354,20 @@ t_end <- Sys.time()
 time_sghmc <- t_end - t_start
 cat(">>> Time elapsed:", as.numeric(t_end - t_start), "seconds\n")
 
-cat(">>> [4/6] Splitting SGHMC 실행 중...\n")
 t2 <- Sys.time()
 res_split <- sghmc_splitting_bnn(X, y, theta_init, n_iter, epsilon=0.0005, C=50, lambda=1, batch_size=batch_size)
 time_split <- Sys.time() - t2
 
-cat(">>> [5/6] Adaptive SGHMC 실행 중...\n")
 t3 <- Sys.time()
 res_adapt <- sghmc_adaptive_bnn(X, y, theta_init, n_iter, epsilon=0.005, C=5, lambda=1, batch_size=batch_size)
 time_adapt <- Sys.time() - t3
 
-cat(">>> [6/6] Cyclical SGHMC 실행 중...\n")
 t4 <- Sys.time()
 res_cyc <- sghmc_cyclical_bnn(X, y, theta_init, n_iter, epsilon_max=0.0001, cycle_length=200, batch_size=batch_size)
 time_cyc <- Sys.time() - t4
 
 # ==============================================================================
-# 4. 결과 비교
+# 4. Result
 # ==============================================================================
 predict_bnn <- function(samp, X_new, burn=2000) {
   preds <- matrix(0, nrow=nrow(samp)-burn, ncol=nrow(X_new))
@@ -396,7 +380,6 @@ predict_bnn <- function(samp, X_new, burn=2000) {
   colMeans(preds)
 }
 
-cat("\n============== 결과 요약 (MSE & Time) ==============\n")
 res_list <- list(HMC=res_hmc, sghmc=res_basic_cpp, Split=res_split, Adapt=res_adapt, Cycle=res_cyc)
 times <- c(time_hmc, time_sghmc, time_split, time_adapt, time_cyc)
 algo_names <- c("HMC (Full)", "SGHMC", "Split SGHMC", "Adaptive SGHMC", "Cyclical SGHMC")
@@ -406,7 +389,7 @@ for(i in 1:5) {
   cat(sprintf("%-15s | Time: %6.2f s | In-Sample MSE: %.5f\n", algo_names[i], as.numeric(times[i]), mse))
 }
 
-# 시각화 (Traceplot of 1st Parameter)
+# Traceplot of 1st Parameter
 par(mfrow=c(5,1), mar=c(2,4,2,1))
 for(i in 1:5) {
   plot(res_list[[i]][,1], type='l', main=algo_names[i], ylab="Theta[1]", col=i)
