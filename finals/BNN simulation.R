@@ -297,7 +297,6 @@ get_potential_energy <- function(theta, X, y, lambda) {
 # get_potential_energy (-)
 # (1) logPOSTERIOR: 
 bnn_log_posterior <- function(theta, X, y, lambda, ...) {
-  # param 리스트를 푸는 과정 삭제 -> 인자로 바로 들어옴
   
   # Forward Pass
   # 
@@ -314,7 +313,7 @@ bnn_log_posterior <- function(theta, X, y, lambda, ...) {
 
 # (2) glogPOSTERIOR: 
 bnn_g_log_posterior <- function(theta, X, y, lambda, ...) {
-  # HMC는 Full Batch이므로 N_total과 batch_size는 전체 데이터 개수
+  #
   N_total <- nrow(X)
   
   
@@ -425,7 +424,6 @@ for(i in 1:5) {
 
 # 1. prediction
 get_pred_interval <- function(samp, X_data, burn=2000) {
-  # 메모리 절약을 위해 샘플링 (예: 200개만 사용)
   use_idx <- seq(burn+1, nrow(samp), length.out=200)
   preds <- matrix(0, nrow=length(use_idx), ncol=nrow(X_data))
   
