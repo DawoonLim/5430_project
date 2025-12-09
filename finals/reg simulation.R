@@ -1,8 +1,3 @@
-#Basic/Splitting: ϵ을 조금만 키우면 폭발하고, 줄이면 도착을 못 합니다. (Tuning이 매우 까다로움)
-#Cyclical: **"초반엔 큰 보폭, 후반엔 작은 보폭"**을 스케줄링하므로, 
-#튜닝 없이도 먼 거리를 빨리 이동하고 정착도 잘합니다. 
-#고차원 문제에서 왜 Cyclical SGHMC가 SOTA(State-of-the-art)인지 보여주는 완벽한 예시입니다.
-
 # ==============================================================================
 # HMC High-Dimensional Comparison: All Rcpp Implementation
 # linear regression N = 500; d = 700 
@@ -274,7 +269,6 @@ List sghmc_cyclical_cpp(NumericMatrix X, NumericVector y, NumericVector theta_in
 # ------------------------------------------------------------------------------
 set.seed(1)
 
-# 사용자 설정
 N <- 500
 d <- 700 
 n_iter <- 2000
@@ -291,7 +285,7 @@ theta_init <- rep(0, d)
 
 
 # ------------------------------------------------------------------------------
-# 3. 알고리즘 실행 및 비교
+# 3. Algorithm
 # ------------------------------------------------------------------------------
 print("Starting HMC Benchmark...")
 
@@ -339,14 +333,14 @@ samples_hmc <- do.call(rbind, res_hmc$thetaCombined)[, 1:d, drop = FALSE]
 res_basic <- sghmc_basic_cpp(X, y, theta_init, n_iter, 
                              epsilon = 8e-5, 
                              C = 50.0, M = 1.0, 
-                             lambda = 0.001,  # [수정] 1.0 -> 0.001
+                             lambda = 0.001,  # 1.0 -> 0.001
                              batch_size = batch_size)
 
 # (3) Splitting SGHMC
 res_split <- sghmc_splitting_cpp(X, y, theta_init, n_iter, 
                                  epsilon = 1e-4, 
                                  C = 50.0, 
-                                 lambda = 0.001,  # [수정] 1.0 -> 0.001
+                                 lambda = 0.001,  # 1.0 -> 0.001
                                  batch_size = batch_size, M = 1.0)
 
 # (4) BOHAMIANN
@@ -354,27 +348,24 @@ res_split <- sghmc_splitting_cpp(X, y, theta_init, n_iter,
 res_adapt <- sghmc_adaptive_cpp(X, y, theta_init, n_iter, 
                                 epsilon = 5e-9, 
                                 C = 50.0, 
-                                lambda = 0.001,  # [수정] 1.0 -> 0.001
+                                lambda = 0.001,  # 1.0 -> 0.001
                                 batch_size = batch_size, mdecay = 0.01)
 
 # (5) cSGHMC
-# Max epsilon을 줄여야 함
 res_cycle <- sghmc_cyclical_cpp(X, y, theta_init, n_iter, 
                                 epsilon_max = 5e-5, 
                                 cycle_length = 600, 
                                 batch_size = batch_size, 
-                                lambda = 0.001, # [수정] 0.001 전달
+                                lambda = 0.001, # 0.001 
                                 beta = 0.9)
 
 # True Values
 true_values <- c(2, -1, 0.5, -0.5, 1)
 param_names <- paste0("Theta", 1:5)
 
-# 함수: 1~5번째 컬럼을 모두 추출하여 Long Format으로 변환
 extract_all_params <- function(algo_name, samples) {
   mat <- as.matrix(samples)
   
-  # 데이터프레임 변환 (Theta1 ~ Theta5)
   df <- as.data.frame(mat[, 1:5])
   colnames(df) <- param_names
   
@@ -385,29 +376,25 @@ extract_all_params <- function(algo_name, samples) {
                  values_to = "Value")
 }
 
-# 데이터 추출
 df_hmc_all   <- extract_all_params("HMC", samples_hmc)
 df_basic_all <- extract_all_params("SGHMC", res_basic$Theta)
 df_split_all <- extract_all_params("Splitting SGHMC", res_split$Theta)
 df_adapt_all <- extract_all_params("BOHAMIANN", res_adapt$Theta)
 df_cycle_all <- extract_all_params("cSGHMC", res_cycle$Theta)
 
-# 통합
 df_all_params <- rbind(df_hmc_all, df_basic_all, df_split_all, df_adapt_all, df_cycle_all)
 
-# Factor 순서 지정
 algo_levels <- c("HMC", "SGHMC", "Splitting SGHMC", "BOHAMIANN", "cSGHMC")
 df_all_params$Algorithm <- factor(df_all_params$Algorithm, levels = algo_levels)
 
 # ------------------------------------------------------------------------------
-# 2. Loop를 통한 시각화 (Theta 1 ~ 5 각각 출력)
+# 2. Theta 1 ~ 5
 # ------------------------------------------------------------------------------
 
 for (j in 1:5) {
   p_name <- param_names[j]
   t_val  <- true_values[j]
   
-  # 해당 파라미터 데이터만 필터링
   df_sub <- df_all_params %>% filter(Parameter == p_name)
   
   # -------------------------
@@ -428,21 +415,20 @@ for (j in 1:5) {
           panel.grid = element_blank())
   
   # -------------------------
-  # B. Density Plot (Burn-in 500 이후)
+  # B. Density Plot (Burn-in 500)
   # -------------------------
-  # 동적 X축 범위 설정: True Value 기준으로 ±1.5 범위
   x_lims <- c(t_val - 1.0, t_val + 1.0)
   
   p_dens <- ggplot(df_sub %>% filter(Iteration > 500), 
                    aes(x=Value, fill=Algorithm)) +
     geom_density(alpha=0.4, color=NA) +
     geom_vline(xintercept = t_val, linetype="dashed", color="black", linewidth=0.8) +
-    scale_fill_brewer(palette = "Set1") + # 색상 팔레트
+    scale_fill_brewer(palette = "Set1") + 
     theme_classic() +
     labs(#title = paste0("Posterior Density: ", p_name),
          #subtitle = "After Burn-in (500)",
          x = "Parameter Value") +
-    coord_cartesian(xlim = x_lims) + # 튀는 값 제외하고 관심 영역 확대
+    coord_cartesian(xlim = x_lims) + 
     theme(legend.position="bottom")
 
   print(p_trace)
@@ -453,15 +439,14 @@ for (j in 1:5) {
 
 
 # ------------------------------------------------------------------------------
-# 3. 요약 통계량 (Summary Stats)
+# 3. Summary Stats
 # ------------------------------------------------------------------------------
-# 1. True Value 매핑 데이터 (이미 정의되어 있다면 생략 가능)
+# 1. True Value 
 true_vals <- data.frame(
   Parameter = c("Theta1", "Theta2", "Theta3", "Theta4", "Theta5"),
   True_Value = c(2.0, -1.0, 0.5, -0.5, 1.0)
 )
 
-# 2. MSE를 포함한 최종 요약표 생성
 final_summary <- df_all_params %>%
   filter(Iteration > 500) %>%                 
   left_join(true_vals, by = "Parameter") %>%
@@ -474,9 +459,8 @@ final_summary <- df_all_params %>%
     MSE    = mean((Value - True_Value)^2, na.rm = TRUE),    
     .groups = 'drop'
   ) %>%
-  arrange(Parameter, Algorithm) # 파라미터별로 정렬하여 비교 용이하게
+  arrange(Parameter, Algorithm)
 
-# 3. 결과 출력 (전체 행)
 print(final_summary, n = 30)
 
 burn_in <- 500
