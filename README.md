@@ -8,6 +8,8 @@ R & Python needed to be installed
 
 /R        ─ Implementations of algorithms and literature simulation scripts 
 
+The existing R package for HMC: https://www.rdocumentation.org/packages/hmclearn/versions/0.0.5/topics/hmc
+
 
 The sghmc package for R depends on TensorFlow 1.x, which is distributed only for Intel (x86_64) platforms. 
 As a result, it is not compatible with ARM64 (Apple Silicon) environments. 
