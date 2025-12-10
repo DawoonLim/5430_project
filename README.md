@@ -2,14 +2,7 @@ new# 5430_project
 test change #afternoon
 R & Python needed to be installed
 
-Goal: adjust HMC with regards to gradient vector
-
-HMC.R: HMC vs (RWM, Adaptive MH)
-
-Literature review: https://arxiv.org/pdf/1402.4102, https://arxiv.org/pdf/1701.02434
-
-sghmc package in r needs TensorFlow ver. 1.x which only works in Intel(x86_64).
-i.e., in ARM64 environmnet, we cannot utilize the package.
-Even if we contour this obstacle by Rosseta, tensorflow 1.x needs AVX(Advanced Vector Extensions) of CPU which Apple Silicon does not have.
-https://www.rdocumentation.org/packages/sgmcmc/versions/0.2.5/topics/sghmc,
-https://arxiv.org/pdf/1710.00578
+The sghmc package for R depends on TensorFlow 1.x, which is distributed only for Intel (x86_64) platforms. 
+As a result, it is not compatible with ARM64 (Apple Silicon) environments. 
+While Rosetta 2 may allow some x86_64 binaries to run on Apple Silicon, TensorFlow 1.x requires CPU features (e.g., AVX — Advanced Vector Extensions) that Apple Silicon lacks, preventing reliable operation. 
+Thus, these functions donot work in R: https://www.rdocumentation.org/packages/sgmcmc/versions/0.2.5/topics/sghmc and https://arxiv.org/pdf/1710.00578
