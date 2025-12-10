@@ -8,12 +8,11 @@ sghmc_splitting_r <- function(X, y, theta_init, n_iter, epsilon, C, lambda, batc
   theta <- theta_init
   r <- rnorm(d, 0, sqrt(M))
   
-  # --- [사전 계산] ---
   # Exact integration parameters
   decay <- exp(-C * epsilon)
   noise_std <- sqrt(1 - exp(-2 * C * epsilon))
   
-  # 초기 Gradient 계산
+  # Gradient 
   indices <- sample(1:N, batch_size)
   X_batch <- X[indices, , drop=FALSE]
   y_batch <- y[indices]
