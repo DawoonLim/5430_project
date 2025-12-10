@@ -3,8 +3,11 @@ test change #afternoon
 R & Python needed to be installed
 
 /finals   ─ Simulation code used in the final report 
+
 /drafts   ─ Test, scratch, and development code
+
 /R        ─ Implementations of algorithms and literature simulation scripts 
+
 
 The sghmc package for R depends on TensorFlow 1.x, which is distributed only for Intel (x86_64) platforms. 
 As a result, it is not compatible with ARM64 (Apple Silicon) environments. 
