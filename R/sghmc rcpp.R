@@ -4,9 +4,8 @@ library(MASS)
 library(Rcpp)
 
 # -------------------------------------------------------------------------
-# 1. Rcpp SGHMC (비복원 추출 적용 + 중간 시간 기록)
+# 1. Rcpp SGHMC
 # -------------------------------------------------------------------------
-# [FIX] 반환 타입을 DataFrame -> List로 변경하여 행렬과 벡터를 안전하게 반환
 cppFunction('
   #include <Rcpp.h>
   using namespace Rcpp;
@@ -80,7 +79,7 @@ cppFunction('
 ########################################################################
 cppFunction('
 #include <Rcpp.h>
-#include <chrono> // [FIX] 시간 측정을 위한 C++ 헤더
+#include <chrono> // [FIX] C++
 
 using namespace Rcpp;
 
@@ -99,7 +98,7 @@ List sghmc_cpp_timed(NumericMatrix X, NumericVector y,
   NumericVector theta = clone(theta_init);
   NumericVector r(d);
   
-  // 초기 Momentum 설정 (R::rnorm 사용으로 최적화)
+  // Momentum
   for(int i=0; i<d; i++) r[i] = R::rnorm(0, sqrt(M));
   
   double noise_std = sqrt(2.0 * C * epsilon);
@@ -108,7 +107,7 @@ List sghmc_cpp_timed(NumericMatrix X, NumericVector y,
   
   IntegerVector all_indices = seq(0, N - 1);
   
-  // [FIX] C++ chrono를 이용한 고해상도 시간 측정 시작
+  // [FIX] C++ time
   auto start_time = std::chrono::high_resolution_clock::now();
   
   for(int t = 0; t < n_iter; t++) {
@@ -135,14 +134,14 @@ List sghmc_cpp_timed(NumericMatrix X, NumericVector y,
     
     // (C) Momentum Update
     for(int j = 0; j < d; j++) {
-      // [FIX] 스칼라 난수 생성 최적화
+      // [FIX] scalar
       double noise = R::rnorm(0, noise_std);
       r[j] = r[j] - epsilon * grad[j] - epsilon * C * (r[j] / M) + noise;
     }
     
     samples(t, _) = theta;
     
-    // [FIX] 현재 시간 측정 및 경과 시간 저장 (seconds)
+    // [FIX] (seconds)
     auto current_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = current_time - start_time;
     times[t] = elapsed.count();
@@ -159,7 +158,7 @@ List sghmc_cpp_timed(NumericMatrix X, NumericVector y,
 
 
 # -------------------------------------------------------------------------
-# 2. R SGHMC (시간 기록 추가)
+# 2. R SGHMC
 # -------------------------------------------------------------------------
 sghmc_r_timed <- function(X, y, theta_init, n_iter, epsilon, C, lambda, batch_size, M = 1) {
   d <- length(theta_init)
@@ -194,7 +193,7 @@ sghmc_r_timed <- function(X, y, theta_init, n_iter, epsilon, C, lambda, batch_si
 }
 
 # -------------------------------------------------------------------------
-# 3. 실험 설정 (d > N High-Dim Setting)
+# 3. (d > N High-Dim Setting)
 # -------------------------------------------------------------------------
 #N <- 500      
 #d <- 1000
@@ -214,7 +213,7 @@ Sigma_post <- solve(A_matrix)
 mu_post <- as.vector(Sigma_post %*% t(X) %*% y)
 
 # -------------------------------------------------------------------------
-# 4. 비교 실행
+# 4. simulation
 # -------------------------------------------------------------------------
 n_iter <- 2000 
 epsilon <- 1e-6
@@ -225,10 +224,9 @@ cat("Running R Version...\n")
 res_r <- sghmc_r_timed(X, y, theta_init, n_iter, epsilon, C, lambda, batch_size)
 
 cat("Running Rcpp Version...\n")
-# M=1.0 명시적 전달
+# M=1.0 
 res_cpp <- sghmc_cpp_timed(X, y, theta_init, n_iter, epsilon, C, 1.0, lambda, batch_size)
 
-# 결과 정리 함수
 get_error_df <- function(res_obj, method_name, true_mean) {
   samples <- res_obj$Theta
   times <- res_obj$Time
@@ -248,7 +246,6 @@ get_error_df <- function(res_obj, method_name, true_mean) {
   return(data.frame(Iter = check_idx, Time = time_points, Error = errors, Method = method_name))
 }
 
-# 이제 res_cpp는 List이므로 $Theta 접근 시 정상적으로 Matrix가 반환됨
 theta_cpp_mat <- as.matrix(res_cpp$Theta)
 time_cpp_vec <- res_cpp$Time
 
@@ -260,7 +257,7 @@ df_cpp <- get_error_df(res_cpp_clean, "Rcpp Version", mu_post)
 df_total <- rbind(df_r, df_cpp)
 
 # -------------------------------------------------------------------------
-# 5. 최종 결정적 그래프
+# 5. visualization
 # -------------------------------------------------------------------------
 p1 <- ggplot(df_total, aes(x = Iter, y = Error, color = Method)) +
   geom_line(linewidth = 1) +
